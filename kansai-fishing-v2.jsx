@@ -1,78 +1,55 @@
 import { useState, useEffect, useCallback } from "react";
 
-// ── JAXA衛星データ（fetch_jaxa.py で毎月更新） ────────────
-// 更新方法: python fetch_jaxa.py
-const JAXA_DATA={sst:null,chla:1.6,month:"2026-02"}; // SST: Open-Meteo Marine自動取得, CHLA: 季節推定
-
 // ── 釣り場データ ──────────────────────────────────────────
 // windFacing: 釣り場が開いている方角（その方向からの風・波が直撃する）
 const SPOTS = [
-  // ── 下関（関門海峡・市内） ────────────────────────
-  { id:1,  name:"下関・新港周辺",       lat:33.9534,lng:130.9358,area:"下関",          type:["堤防"],         fee:"無料",parking:true, toilet:true, windFacing:0,  fish:["アジ","チヌ","ガシラ","タチウオ","フグ"],           season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:2,  name:"彦島・南風泊港",       lat:33.9284,lng:130.9005,area:"下関・彦島",     type:["漁港","堤防"],   fee:"無料",parking:true, toilet:false,windFacing:270,fish:["アジ","チヌ","メバル","ガシラ","タチウオ"],           season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:3,  name:"下関・港頭地区",       lat:33.9531,lng:130.9511,area:"下関",          type:["堤防"],         fee:"無料",parking:true, toilet:true, windFacing:180,fish:["チヌ","シーバス","アジ","タチウオ","フグ"],           season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  // ── 下関（日本海側・豊北） ────────────────────────
-  { id:4,  name:"角島（角島大橋下）",   lat:34.3283,lng:130.8803,area:"下関・豊北",     type:["磯","堤防"],     fee:"無料",parking:true, toilet:true, windFacing:315,fish:["グレ","アオリイカ","メバル","ガシラ","アジ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:5,  name:"特牛（こっとい）港",   lat:34.2803,lng:130.9246,area:"下関・豊北",     type:["漁港"],         fee:"無料",parking:true, toilet:false,windFacing:0,  fish:["アジ","チヌ","アオリイカ","メバル","ガシラ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:6,  name:"小串漁港",             lat:34.0518,lng:130.9313,area:"下関・小串",     type:["漁港","堤防"],   fee:"無料",parking:true, toilet:false,windFacing:270,fish:["アジ","チヌ","メバル","ガシラ","アオリイカ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  // ── 宇部・山陽小野田 ─────────────────────────────
-  { id:7,  name:"宇部港・常盤公園前",   lat:33.9537,lng:131.2411,area:"宇部",          type:["堤防"],         fee:"無料",parking:true, toilet:true, windFacing:225,fish:["チヌ","シーバス","アジ","タチウオ","カレイ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:8,  name:"吉見漁港（小野田）",   lat:33.9268,lng:131.1701,area:"山陽小野田",     type:["漁港","堤防"],   fee:"無料",parking:true, toilet:false,windFacing:180,fish:["アジ","チヌ","メバル","カレイ","ガシラ"],             season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  // ── 防府 ─────────────────────────────────────────
-  { id:9,  name:"防府・三田尻港",       lat:34.0463,lng:131.5741,area:"防府",          type:["堤防","漁港"],   fee:"無料",parking:true, toilet:true, windFacing:180,fish:["チヌ","アジ","シーバス","タチウオ","カレイ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  // ── 周南（徳山）・下松 ───────────────────────────
-  { id:10, name:"徳山港・大島大橋下",   lat:34.0545,lng:131.8024,area:"周南・徳山",     type:["堤防"],         fee:"無料",parking:true, toilet:true, windFacing:180,fish:["チヌ","アジ","タチウオ","シーバス","カレイ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:11, name:"大津島",               lat:33.9978,lng:131.7850,area:"周南・大津島",   type:["渡船","磯"],     fee:"有料",parking:true, toilet:true, windFacing:null,fish:["グレ","アジ","チヌ","アオリイカ","ガシラ"],           season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:12, name:"下松・切戸川河口",     lat:34.0189,lng:131.8617,area:"下松",          type:["河口","ルアー"], fee:"無料",parking:true, toilet:false,windFacing:180,fish:["シーバス","チヌ","ヒラメ","カレイ"],                   season:[4,5,6,7,8,9,10,11] },
-  // ── 光・熊毛 ─────────────────────────────────────
-  { id:13, name:"室積漁港",             lat:33.9663,lng:131.9568,area:"光",            type:["漁港","堤防"],   fee:"無料",parking:true, toilet:true, windFacing:180,fish:["アジ","グレ","チヌ","アオリイカ","ガシラ"],           season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:14, name:"平生・田名漁港",       lat:33.9347,lng:131.9965,area:"熊毛・平生",     type:["漁港"],         fee:"無料",parking:true, toilet:false,windFacing:225,fish:["アジ","チヌ","アオリイカ","メバル","ガシラ"],           season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  // ── 柳井 ─────────────────────────────────────────
-  { id:15, name:"柳井港",               lat:33.9686,lng:132.1012,area:"柳井",          type:["堤防","漁港"],   fee:"無料",parking:true, toilet:true, windFacing:180,fish:["チヌ","アジ","タチウオ","シーバス","カレイ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  // ── 周防大島 ─────────────────────────────────────
-  { id:16, name:"周防大島・伊保田漁港", lat:33.8920,lng:132.1590,area:"周防大島",       type:["漁港","堤防"],   fee:"無料",parking:true, toilet:false,windFacing:225,fish:["アジ","グレ","チヌ","アオリイカ","ブリ・ハマチ"],     season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:17, name:"周防大島・片添ヶ浜",   lat:33.8811,lng:132.3105,area:"周防大島",       type:["サーフ","堤防"], fee:"無料",parking:true, toilet:true, windFacing:180,fish:["ヒラメ","アジ","グレ","チヌ"],                       season:[5,6,7,8,9,10] },
-  // ── 岩国 ─────────────────────────────────────────
-  { id:18, name:"岩国港・欽明路公園",   lat:34.1695,lng:132.2162,area:"岩国",          type:["堤防"],         fee:"無料",parking:true, toilet:true, windFacing:180,fish:["チヌ","アジ","シーバス","カレイ","タチウオ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:19, name:"由宇漁港",             lat:34.0977,lng:132.2017,area:"岩国・由宇",     type:["漁港","堤防"],   fee:"無料",parking:true, toilet:false,windFacing:180,fish:["アジ","チヌ","メバル","ガシラ","アオリイカ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  // ── 長門（仙崎・三隅・油谷） ─────────────────────
-  { id:20, name:"仙崎港",               lat:34.3735,lng:131.1741,area:"長門・仙崎",     type:["漁港","堤防"],   fee:"無料",parking:true, toilet:true, windFacing:0,  fish:["アジ","チヌ","メバル","ガシラ","ブリ・ハマチ"],       season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:21, name:"青海島（渡船）",        lat:34.3920,lng:131.1980,area:"長門・青海島",   type:["磯","渡船"],     fee:"有料",parking:true, toilet:false,windFacing:0,  fish:["グレ","アオリイカ","メバル","ガシラ","ブリ・ハマチ"],   season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:22, name:"三隅漁港",             lat:34.4498,lng:131.2688,area:"長門・三隅",     type:["漁港","堤防"],   fee:"無料",parking:true, toilet:false,windFacing:330,fish:["アジ","チヌ","メバル","グレ","アオリイカ"],           season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:23, name:"油谷湾・矢ヶ浜",       lat:34.4175,lng:131.0730,area:"長門・油谷",     type:["堤防","漁港"],   fee:"無料",parking:true, toilet:false,windFacing:90, fish:["アオリイカ","アジ","メバル","チヌ","グレ"],           season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  // ── 萩・須佐・見島 ───────────────────────────────
-  { id:24, name:"萩港・橋本川河口",     lat:34.4078,lng:131.3962,area:"萩",            type:["漁港","堤防","河口"],fee:"無料",parking:true,toilet:true, windFacing:315,fish:["アジ","チヌ","シーバス","アオリイカ","ブリ・ハマチ"], season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:25, name:"須佐漁港",             lat:34.5228,lng:131.5167,area:"萩・須佐",       type:["漁港","堤防"],   fee:"無料",parking:true, toilet:false,windFacing:315,fish:["アジ","グレ","チヌ","アオリイカ","メバル"],           season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:26, name:"見島（東港）",          lat:34.7078,lng:131.1233,area:"萩・見島",       type:["渡船","磯"],     fee:"有料",parking:false,toilet:true, windFacing:null,fish:["グレ","アオリイカ","ブリ・ハマチ","アジ","ガシラ"],   season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  // ── 北九州（関門海峡・響灘） ─────────────────────
-  { id:27, name:"門司港・関門橋下",      lat:33.9440,lng:130.9664,area:"北九州・門司",   type:["堤防"],         fee:"無料",parking:true, toilet:true, windFacing:0,  fish:["チヌ","フグ","アジ","タチウオ","ガシラ"],             season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:28, name:"田野浦港（新門司）",    lat:33.9100,lng:131.0200,area:"北九州・門司",   type:["堤防","漁港"],   fee:"無料",parking:true, toilet:false,windFacing:90, fish:["アジ","チヌ","ガシラ","メバル","タチウオ"],           season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:29, name:"響灘緑地（若松）",      lat:33.9370,lng:130.7490,area:"北九州・若松",   type:["堤防"],         fee:"無料",parking:true, toilet:true, windFacing:315,fish:["アジ","チヌ","シーバス","メバル","ブリ・ハマチ"],     season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:30, name:"脇田海釣り桟橋",       lat:33.8240,lng:130.7720,area:"北九州・岡垣",   type:["堤防"],         fee:"有料",parking:true, toilet:true, windFacing:270,fish:["アジ","チヌ","サバ","メバル","ブリ・ハマチ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  // ── 福岡（遠賀・宗像） ───────────────────────────
-  { id:31, name:"芦屋漁港（遠賀）",     lat:33.8980,lng:130.6530,area:"福岡・遠賀",     type:["漁港","堤防"],   fee:"無料",parking:true, toilet:false,windFacing:315,fish:["アジ","チヌ","シーバス","カレイ","メバル"],           season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:32, name:"神湊港（宗像）",       lat:33.8010,lng:130.5340,area:"福岡・宗像",     type:["漁港","堤防"],   fee:"無料",parking:true, toilet:true, windFacing:270,fish:["アジ","チヌ","アオリイカ","メバル","ブリ・ハマチ"],   season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  // ── 福岡（京築） ─────────────────────────────────
-  { id:33, name:"苅田港",              lat:33.8770,lng:130.9990,area:"福岡・苅田",     type:["堤防"],         fee:"無料",parking:true, toilet:true, windFacing:90, fish:["チヌ","アジ","タチウオ","シーバス","カレイ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id:34, name:"今川河口（行橋）",     lat:33.7300,lng:130.9900,area:"福岡・行橋",     type:["河口","ルアー"], fee:"無料",parking:true, toilet:false,windFacing:90, fish:["シーバス","チヌ","ヒラメ","カレイ"],                 season:[4,5,6,7,8,9,10,11] },
-  { id:35, name:"椎田漁港（豊前）",    lat:33.6080,lng:131.1090,area:"福岡・豊前",     type:["漁港","堤防"],   fee:"無料",parking:true, toilet:false,windFacing:90, fish:["アジ","チヌ","アオリイカ","メバル","ガシラ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
-  // ── 大分（中津・国東） ───────────────────────────
-  { id:36, name:"中津港・大貞埠頭",    lat:33.5990,lng:131.1860,area:"大分・中津",     type:["堤防","漁港"],   fee:"無料",parking:true, toilet:true, windFacing:90, fish:["チヌ","アジ","シーバス","ヒラメ","カレイ"],           season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  // ── 横浜・川崎 ────────────────────────────────────────
+  { id:1,  name:"本牧海釣り施設",          lat:35.4180,lng:139.6640,area:"横浜・本牧",      type:["桟橋"],           fee:"有料",parking:true, toilet:true, windFacing:135,fish:["アジ","クロダイ","シーバス","カレイ","サバ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:2,  name:"大黒海釣り公園",           lat:35.4660,lng:139.6580,area:"横浜・大黒",      type:["桟橋"],           fee:"有料",parking:true, toilet:true, windFacing:90, fish:["アジ","クロダイ","シーバス","カレイ","サバ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:3,  name:"海の公園（金沢区）",       lat:35.3480,lng:139.6400,area:"横浜・金沢",      type:["サーフ","堤防"],   fee:"無料",parking:true, toilet:true, windFacing:90, fish:["シロギス","ハゼ","アジ","シーバス","カレイ"],       season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  // ── 横須賀 ────────────────────────────────────────────
+  { id:4,  name:"走水港",                   lat:35.2680,lng:139.7340,area:"横須賀・走水",    type:["漁港","堤防"],     fee:"無料",parking:true, toilet:false,windFacing:45, fish:["アジ","メバル","カサゴ","クロダイ","アオリイカ"],   season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:5,  name:"うみかぜ公園",             lat:35.2850,lng:139.6900,area:"横須賀",          type:["堤防"],           fee:"無料",parking:true, toilet:true, windFacing:90, fish:["アジ","クロダイ","シーバス","カレイ","サバ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:6,  name:"観音崎公園",               lat:35.2790,lng:139.7440,area:"横須賀・観音崎",  type:["磯","堤防"],       fee:"無料",parking:true, toilet:true, windFacing:90, fish:["メバル","カサゴ","アオリイカ","クロダイ","アジ"],   season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  // ── 三浦半島（内湾） ──────────────────────────────────
+  { id:7,  name:"長井港",                   lat:35.2240,lng:139.6300,area:"横須賀・長井",    type:["漁港","堤防"],     fee:"無料",parking:true, toilet:false,windFacing:270,fish:["アジ","クロダイ","メバル","アオリイカ","カサゴ"],   season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:8,  name:"宮川港",                   lat:35.1590,lng:139.6210,area:"三浦・宮川",      type:["漁港"],           fee:"無料",parking:true, toilet:false,windFacing:180,fish:["アジ","クロダイ","アオリイカ","メバル","サバ"],       season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  // ── 三浦半島先端 ──────────────────────────────────────
+  { id:9,  name:"剣崎（立石海岸）",         lat:35.1580,lng:139.6850,area:"三浦・剣崎",      type:["磯"],             fee:"無料",parking:true, toilet:false,windFacing:135,fish:["メバル","カサゴ","アオリイカ","クロダイ","ヒラメ"],   season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:10, name:"三崎港",                   lat:35.1570,lng:139.6120,area:"三浦・三崎",      type:["漁港","堤防"],     fee:"無料",parking:true, toilet:true, windFacing:180,fish:["アジ","クロダイ","アオリイカ","サバ","ワカシ"],     season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:11, name:"城ヶ島",                   lat:35.1360,lng:139.6140,area:"三浦・城ヶ島",    type:["磯","堤防"],       fee:"無料",parking:true, toilet:true, windFacing:180,fish:["メバル","カサゴ","アオリイカ","クロダイ","ヒラメ"],   season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:12, name:"荒崎公園",                 lat:35.1750,lng:139.5990,area:"三浦・荒崎",      type:["磯"],             fee:"無料",parking:true, toilet:true, windFacing:225,fish:["メバル","カサゴ","アオリイカ","クロダイ"],             season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  // ── 湘南 ──────────────────────────────────────────────
+  { id:13, name:"江の島（湘南港）",         lat:35.2940,lng:139.4790,area:"藤沢・江の島",    type:["堤防","漁港"],     fee:"無料",parking:true, toilet:true, windFacing:180,fish:["アジ","クロダイ","シーバス","アオリイカ","サバ"],   season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:14, name:"片瀬漁港",                 lat:35.3060,lng:139.4870,area:"藤沢・片瀬",      type:["漁港","堤防"],     fee:"無料",parking:true, toilet:false,windFacing:180,fish:["アジ","シロギス","ハゼ","シーバス","クロダイ"],       season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:15, name:"腰越漁港",                 lat:35.3060,lng:139.5060,area:"鎌倉・腰越",      type:["漁港","堤防"],     fee:"無料",parking:true, toilet:false,windFacing:180,fish:["アジ","クロダイ","メバル","カサゴ","サバ"],           season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:16, name:"茅ヶ崎ヘッドランド",       lat:35.3210,lng:139.4200,area:"茅ヶ崎",          type:["サーフ","堤防"],   fee:"無料",parking:true, toilet:true, windFacing:180,fish:["シロギス","ヒラメ","マゴチ","シーバス","アジ"],       season:[4,5,6,7,8,9,10,11] },
+  { id:17, name:"平塚新港",                 lat:35.3210,lng:139.3540,area:"平塚",            type:["堤防"],           fee:"無料",parking:true, toilet:true, windFacing:180,fish:["アジ","クロダイ","シーバス","サバ","ヒラメ"],         season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:18, name:"相模川河口（茅ヶ崎側）",   lat:35.3280,lng:139.3880,area:"茅ヶ崎・相模川",  type:["河口","ルアー"],   fee:"無料",parking:true, toilet:false,windFacing:180,fish:["シーバス","クロダイ","ヒラメ","マゴチ"],               season:[4,5,6,7,8,9,10,11] },
+  // ── 西湘 ──────────────────────────────────────────────
+  { id:19, name:"大磯港",                   lat:35.3050,lng:139.3150,area:"大磯",            type:["漁港","堤防"],     fee:"無料",parking:true, toilet:true, windFacing:180,fish:["アジ","クロダイ","サバ","メバル","ヒラメ"],           season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:20, name:"二宮海岸（国府津）",       lat:35.2980,lng:139.2450,area:"二宮・国府津",    type:["サーフ"],         fee:"無料",parking:true, toilet:false,windFacing:180,fish:["シロギス","ヒラメ","マゴチ","シーバス"],               season:[5,6,7,8,9,10] },
+  { id:21, name:"早川港（小田原）",         lat:35.2670,lng:139.1540,area:"小田原・早川",    type:["漁港","堤防"],     fee:"無料",parking:true, toilet:true, windFacing:225,fish:["アジ","クロダイ","サバ","メバル","カサゴ"],           season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:22, name:"小田原漁港前",             lat:35.2590,lng:139.1580,area:"小田原",          type:["堤防"],           fee:"無料",parking:true, toilet:true, windFacing:225,fish:["アジ","クロダイ","サバ","アオリイカ","メバル"],       season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:23, name:"米神漁港",                 lat:35.2300,lng:139.1250,area:"小田原・米神",    type:["漁港"],           fee:"無料",parking:true, toilet:false,windFacing:225,fish:["アジ","メバル","カサゴ","アオリイカ","クロダイ"],     season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:24, name:"真鶴港",                   lat:35.1710,lng:139.1290,area:"真鶴",            type:["漁港","磯","堤防"],fee:"無料",parking:true, toilet:true, windFacing:225,fish:["メバル","カサゴ","アオリイカ","クロダイ","ヒラメ"],   season:[1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id:25, name:"湯河原・吉浜漁港",         lat:35.1440,lng:139.0830,area:"湯河原",          type:["漁港","堤防"],     fee:"無料",parking:true, toilet:false,windFacing:270,fish:["アジ","メバル","カサゴ","アオリイカ","クロダイ"],     season:[1,2,3,4,5,6,7,8,9,10,11,12] },
 ];
 
 const FISH_MASTER = [
-  { name:"アジ",      emoji:"🐟", season:[4,5,6,7,8,9,10],          tempMin:15, tempMax:28 },
-  { name:"チヌ",      emoji:"🐠", season:[1,2,3,4,5,6,7,8,9,10,11,12], tempMin:8, tempMax:30 },
-  { name:"タチウオ",  emoji:"🐡", season:[8,9,10,11],                tempMin:18, tempMax:28 },
-  { name:"ガシラ",    emoji:"🦐", season:[1,2,3,4,5,6,7,8,9,10,11,12], tempMin:5, tempMax:25 },
-  { name:"シーバス",  emoji:"🐋", season:[4,5,6,7,8,9,10,11],       tempMin:12, tempMax:28 },
-  { name:"アオリイカ",emoji:"🦑", season:[3,4,5,9,10,11],            tempMin:15, tempMax:25 },
-  { name:"グレ",      emoji:"🐟", season:[10,11,12,1,2,3],           tempMin:10, tempMax:22 },
-  { name:"メバル",    emoji:"🐟", season:[1,2,3,4,11,12],            tempMin:8,  tempMax:18 },
-  { name:"ブリ・ハマチ",emoji:"🐠", season:[8,9,10,11,12],           tempMin:15, tempMax:26 },
-  { name:"カレイ",    emoji:"🐡", season:[11,12,1,2,3],              tempMin:8,  tempMax:16 },
-  { name:"フグ",      emoji:"🐡", season:[10,11,12,1,2,3],           tempMin:8,  tempMax:20 },
-  { name:"ヒラメ",    emoji:"🐟", season:[10,11,12,1,2,3,4],         tempMin:10, tempMax:20 },
+  { name:"アジ",      emoji:"🐟", season:[4,5,6,7,8,9,10],             tempMin:15, tempMax:28 },
+  { name:"クロダイ",  emoji:"🐠", season:[1,2,3,4,5,6,7,8,9,10,11,12], tempMin:8,  tempMax:30 },
+  { name:"シーバス",  emoji:"🐋", season:[4,5,6,7,8,9,10,11],           tempMin:12, tempMax:28 },
+  { name:"アオリイカ",emoji:"🦑", season:[3,4,5,9,10,11],               tempMin:15, tempMax:25 },
+  { name:"メバル",    emoji:"🐟", season:[1,2,3,4,11,12],               tempMin:8,  tempMax:18 },
+  { name:"カサゴ",    emoji:"🦐", season:[1,2,3,4,5,6,7,8,9,10,11,12], tempMin:5,  tempMax:25 },
+  { name:"ヒラメ",    emoji:"🐡", season:[10,11,12,1,2,3,4],            tempMin:10, tempMax:20 },
+  { name:"カレイ",    emoji:"🐡", season:[11,12,1,2,3],                 tempMin:8,  tempMax:16 },
+  { name:"サバ",      emoji:"🐟", season:[6,7,8,9,10,11],               tempMin:18, tempMax:28 },
+  { name:"シロギス",  emoji:"🐟", season:[5,6,7,8,9,10],                tempMin:18, tempMax:28 },
+  { name:"マゴチ",    emoji:"🐡", season:[5,6,7,8,9,10],                tempMin:18, tempMax:28 },
+  { name:"ハゼ",      emoji:"🐟", season:[7,8,9,10],                    tempMin:20, tempMax:30 },
+  { name:"ワカシ",    emoji:"🐠", season:[7,8,9,10,11],                 tempMin:18, tempMax:28 },
 ];
 
 // ── ユーティリティ ────────────────────────────────────────
@@ -82,7 +59,7 @@ function calcDist(lat1,lng1,lat2,lng2){
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
-function distToTime(km){ 
+function distToTime(km){
   const mins = Math.round(km/25*60);
   return mins < 60 ? `約${mins}分` : `約${Math.floor(mins/60)}時間${mins%60>0?mins%60+'分':""}`;
 }
@@ -96,27 +73,26 @@ function calcLunarAge(date){
   return age<0?age+CYCLE:age;
 }
 
-// 潮汐計算（防府・下関港天文計算）
+// 潮汐計算（横浜港天文計算）
 function generateTide(date){
   const CYCLE=29.530589;
   const age=calcLunarAge(date);
 
-  // 新月・満月からの距離で大潮/中潮/小潮を判定
   const distFromSyzygy=Math.min(age,Math.abs(age-CYCLE/2),CYCLE-age);
   const isBig=distFromSyzygy<=1.5;
   const name=distFromSyzygy<=1.5?"大潮":distFromSyzygy<=4.0?"中潮":distFromSyzygy<=6.0?"小潮":"中潮";
 
-  // 振幅（防府港: 大潮±75cm / 小潮±40cm）
-  const phaseFactor=0.5*(1+Math.cos(age/CYCLE*4*Math.PI)); // 大潮=1, 小潮=0
-  const amp=40+35*phaseFactor;
+  // 振幅（横浜港: 大潮±85cm / 小潮±40cm）
+  const phaseFactor=0.5*(1+Math.cos(age/CYCLE*4*Math.PI));
+  const amp=40+45*phaseFactor;
 
-  // 月の南中時刻（新月≈正午、満月≈深夜）
+  // 月の南中時刻
   const lunarTransit=(12+(age/CYCLE)*24)%24;
-  // 防府港の高潮間隔（HWI）: 月南中から約10.5時間後が満潮
-  const firstHigh=(lunarTransit+10.5)%24;
+  // 横浜港の高潮間隔（HWI）: 月南中から約5.5時間後が満潮
+  const firstHigh=(lunarTransit+5.5)%24;
 
   // M2分潮（半日周期 12.42h）+ K1分潮（日周期 23.93h）で潮位計算
-  const MSL=150; // 平均水面 cm（周防灘基準面上）
+  const MSL=140; // 平均水面 cm（東京湾基準面上）
   const pts=Array.from({length:25},(_,h)=>({
     hour:h,
     level:Math.max(5,Math.round(
@@ -133,8 +109,8 @@ function generateTide(date){
 
 // ベスト釣り時間帯（朝夕マズメ × 潮汐）
 function calcBestHours(tide, month){
-  const sr=[7,7,6,5,5,5,5,5,6,6,6,7][month-1]; // 日の出（山口概算）
-  const ss=[17,17,18,18,19,19,19,18,18,17,17,17][month-1]; // 日の入り
+  const sr=[7,6,6,5,5,4,5,5,5,6,6,7][month-1]; // 日の出（神奈川概算）
+  const ss=[17,17,18,18,19,19,19,18,18,17,17,16][month-1]; // 日の入り
   const w=h=>((h%24)+24)%24;
   return [
     {start:w(sr-1), end:w(sr+1), label:"朝マズメ",  mark:"🌅", score:2},
@@ -148,7 +124,7 @@ function calcBestHours(tide, month){
 function windShelterInfo(windDeg, windSpeed, windFacing){
   if(windFacing==null||windSpeed<2)return{ok:true,label:""};
   const diff=Math.abs(((windDeg-windFacing+180)%360)-180);
-  const exposed=diff<70; // 70°以内なら向かい風
+  const exposed=diff<70;
   if(!exposed)return{ok:true, label:"追い風"};
   if(windSpeed<4)return{ok:true, label:""};
   if(windSpeed<7)return{ok:false,label:"向かい風注意"};
@@ -176,12 +152,6 @@ function calcFishScoreReason(spot,month,temp){
   else if(temp<15) reasons.push("水温やや低め");
   else reasons.push("水温高め・魚が沖へ");
   return reasons.join(" / ");
-}
-
-// クロロフィルa: JAXA実測優先、なければ周防灘・日本海の月別統計推定値
-function getChla(month){
-  if(JAXA_DATA.chla!=null)return JAXA_DATA.chla;
-  return[3,4,8,10,7,4,3,4,7,9,6,4][month-1]; // 周防灘・日本海月別統計推定値（フォールバック）
 }
 
 function windDir(deg){
@@ -285,7 +255,7 @@ function HourlyDetail({hourly,marineHourly,dayIndex}){
   if(!hourly)return <div style={{fontSize:10,color:"#334422",padding:"8px 0"}}>気象データ取得中...</div>;
   const base=dayIndex*24;
   const nowH=new Date().getHours();
-  const rows=Array.from({length:19},(_,i)=>i+4); // 4〜22時
+  const rows=Array.from({length:19},(_,i)=>i+4);
   return(
     <div style={{overflowY:"auto",maxHeight:280,marginTop:8,borderRadius:8,border:"1px solid #0f2a0d"}}>
       <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -338,7 +308,9 @@ export default function App(){
   const today=new Date();
   const [location,setLocation]=useState(null);
   const [nearbySpots,setNearbySpots]=useState([]);
-  const [selectedDay,setSelectedDay]=useState(0); // 0=今日
+  const [sortOrder,setSortOrder]=useState("asc");
+  const [selectedArea,setSelectedArea]=useState(null);
+  const [selectedDay,setSelectedDay]=useState(0);
   const [weather7,setWeather7]=useState(null);
   const [openSpot,setOpenSpot]=useState(null);
   const [selectedFish,setSelectedFish]=useState(null);
@@ -351,7 +323,6 @@ export default function App(){
   const [food,setFood]=useState([]);
   const [loadingNearby,setLoadingNearby]=useState(false);
   const [selectedSpotForNearby,setSelectedSpotForNearby]=useState(null);
-  const [seaTemp,setSeaTemp]=useState(JAXA_DATA.sst); // JAXA優先、なければOpen-Meteo Marine
   const [hourly,setHourly]=useState(null);
   const [marineHourly,setMarineHourly]=useState(null);
   const [showDetail,setShowDetail]=useState(false);
@@ -371,13 +342,13 @@ export default function App(){
         const{latitude:lat,longitude:lng}=pos.coords;
         setLocation({lat,lng});
         const nearby=SPOTS.map(s=>({...s,dist:calcDist(lat,lng,s.lat,s.lng)})).filter(s=>s.dist<=100).sort((a,b)=>a.dist-b.dist);
-        setNearbySpots(nearby.slice(0,10));
+        setNearbySpots(nearby.slice(0,15));
       },
       ()=>{
-        const lat=34.1860,lng=131.4700;
+        const lat=35.4437,lng=139.6380; // 横浜（フォールバック）
         setLocation({lat,lng,fallback:true});
         const nearby=SPOTS.map(s=>({...s,dist:calcDist(lat,lng,s.lat,s.lng)})).filter(s=>s.dist<=100).sort((a,b)=>a.dist-b.dist);
-        setNearbySpots(nearby.slice(0,10));
+        setNearbySpots(nearby.slice(0,15));
       }
     );
   },[]);
@@ -423,19 +394,7 @@ export default function App(){
       .catch(()=>{});
   },[location]);
 
-  // JAXA_DATAにSSTがない場合のみOpen-Meteo Marineにフォールバック
-  useEffect(()=>{
-    if(JAXA_DATA.sst!=null||!location)return;
-    fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${location.lat}&longitude=${location.lng}&current=sea_surface_temperature&timezone=Asia%2FTokyo`)
-      .then(r=>r.json())
-      .then(d=>{
-        const sst=d.current?.sea_surface_temperature;
-        if(sst!=null)setSeaTemp(Math.round(sst*10)/10);
-      })
-      .catch(()=>{});
-  },[location]);
-
-// 釣具屋・飲食店（選択した釣り場の近く）
+  // 釣具屋・飲食店（選択した釣り場の近く）
   const loadNearby=useCallback(async(spot)=>{
     setLoadingNearby(true);
     setSelectedSpotForNearby(spot.id);
@@ -446,8 +405,7 @@ export default function App(){
 
   const w=weather7?.daily?.[selectedDay];
   const wCurrent=selectedDay===0?weather7?.current:null;
-  const temp=wCurrent?.temperature??w?.temp??18;       // 気温（表示用）
-  const fishTemp=seaTemp??temp;                         // 魚スコア用（海水温優先）
+  const temp=wCurrent?.temperature??w?.temp??18;
   const wind=wCurrent?.windspeed??w?.wind??0;
   const windDeg=wCurrent?.winddir??w?.winddir??0;
   const rain=wCurrent?.precipitation??w?.rain??0;
@@ -456,7 +414,13 @@ export default function App(){
   const totalScore=dayScore(tide,{windspeed:wind,precipitation:rain});
   const {text:scoreText,color:scoreColor}=scoreLabel(totalScore);
 
-  const filteredSpots=selectedFish?nearbySpots.filter(s=>s.fish.includes(selectedFish)):nearbySpots;
+  const nearbyAreas=[...new Set(nearbySpots.map(s=>s.area))];
+  const applyFilters=(spots)=>
+    spots
+      .filter(s=>!selectedArea||s.area===selectedArea)
+      .filter(s=>!selectedFish||s.fish.includes(selectedFish))
+      .sort((a,b)=>sortOrder==="asc"?a.dist-b.dist:b.dist-a.dist);
+  const filteredSpots=applyFilters(nearbySpots);
 
   const addReport=(spotId)=>{
     if(!reportFish)return;
@@ -471,18 +435,17 @@ export default function App(){
 
       {/* ヘッダー */}
       <div style={{padding:"14px 16px 12px",borderBottom:`1px solid #0f2a0d`}}>
-        <div style={{fontSize:10,color:"#335522",letterSpacing:"0.15em",marginBottom:6}}>YAMAGUCHI FISHING NAVI</div>
+        <div style={{fontSize:10,color:"#335522",letterSpacing:"0.15em",marginBottom:6}}>KANAGAWA FISHING NAVI</div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <h1 style={{margin:0,fontSize:18,fontWeight:900}}>🎣 やまちゃん釣りナビ</h1>
+          <h1 style={{margin:0,fontSize:18,fontWeight:900}}>🎣 神奈川釣りナビ</h1>
           <div style={{fontSize:10,color:location?.fallback?"#ff8844":C.accent}}>
-            {location?(location.fallback?"📍 山口（推定）":"📍 現在地"):"📍 取得中..."}
+            {location?(location.fallback?"📍 横浜（推定）":"📍 現在地"):"📍 取得中..."}
           </div>
         </div>
       </div>
 
       {/* 7日カレンダー */}
       {(()=>{
-        // ベストデイ計算（最高スコアの日を全部マーク）
         const scores=days.map((d,i)=>{
           const td=generateTide(d);
           const dw=weather7?.daily?.[i];
@@ -557,7 +520,6 @@ export default function App(){
                 <div style={{fontSize:9,color:C.muted}}>/5</div>
               </div>
             </div>
-            {/* スコア根拠 */}
             <div style={{fontSize:11,color:C.muted,borderTop:`1px solid #0f2a0d`,paddingTop:8}}>
               <span style={{color:"#334422"}}>根拠：</span>
               {[
@@ -599,36 +561,6 @@ export default function App(){
             {showDetail&&<HourlyDetail hourly={hourly} marineHourly={marineHourly} dayIndex={selectedDay}/>}
           </div>
 
-          {/* 海況（水温・CHLA） */}
-          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:14,marginBottom:12}}>
-            <div style={{fontSize:12,fontWeight:700,marginBottom:10}}>海況</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-              <div style={{background:"#061204",borderRadius:8,padding:"8px 6px",textAlign:"center"}}>
-                <div style={{fontSize:9,color:C.muted,marginBottom:3}}>海面水温</div>
-                <div style={{fontSize:16,fontWeight:700,color:"#44aaff",fontFamily:"monospace"}}>
-                  {seaTemp!=null?`${seaTemp}°C`:"--"}
-                </div>
-                <div style={{fontSize:8,color:"#223322",marginTop:2}}>
-                  {seaTemp!=null?(seaTemp<15?"低め":seaTemp>25?"高め":"適水温帯"):"取得中"}
-                </div>
-              </div>
-              <div style={{background:"#061204",borderRadius:8,padding:"8px 6px",textAlign:"center"}}>
-                <div style={{fontSize:9,color:C.muted,marginBottom:3}}>クロロフィルa</div>
-                <div style={{fontSize:16,fontWeight:700,color:"#44ff88",fontFamily:"monospace"}}>
-                  {getChla(month)} <span style={{fontSize:10}}>μg/L</span>
-                </div>
-                <div style={{fontSize:8,color:"#223322",marginTop:2}}>
-                  {getChla(month)>=8?"エサ豊富":getChla(month)>=5?"普通":"少なめ"}
-                </div>
-              </div>
-            </div>
-            <div style={{marginTop:6,fontSize:9,color:"#223322"}}>
-              {JAXA_DATA.month
-                ?`JAXA GCOM-C衛星データ (${JAXA_DATA.month})`
-                :"水温: Open-Meteo Marine（フォールバック）· CHLA: 周防灘・日本海月別統計推定値"}
-            </div>
-          </div>
-
           {/* 潮汐 */}
           <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:14,marginBottom:12}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
@@ -639,7 +571,7 @@ export default function App(){
             </div>
             <TideChart data={tide}/>
             <div style={{marginTop:6,fontSize:9,color:"#223322"}}>
-              <span style={{color:C.orange}}>│</span> 現在時刻 · 潮汐: 下関・防府港天文計算（M2・K1分潮）
+              <span style={{color:C.orange}}>│</span> 現在時刻 · 潮汐: 横浜港天文計算（M2・K1分潮）
             </div>
             {/* ベスト時間帯 */}
             <div style={{marginTop:10,borderTop:`1px solid #0f2a0d`,paddingTop:8}}>
@@ -655,13 +587,43 @@ export default function App(){
             </div>
           </div>
 
-          {/* 近くの釣り場 */}
-          <div style={{fontSize:10,color:"#334422",letterSpacing:"0.1em",marginBottom:8}}>── 近くの釣り場（{nearbySpots.length}箇所）</div>
-          {nearbySpots.slice(0,5).map((s,i)=>{
-            const fs=calcFishScore(s,month,fishTemp);
+          {/* 近くの釣り場 ソート・エリアフィルタ */}
+          <div style={{marginBottom:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <div style={{fontSize:10,color:"#334422",letterSpacing:"0.1em"}}>── 近くの釣り場（{filteredSpots.length}箇所）</div>
+              <div style={{display:"flex",gap:4}}>
+                {["asc","desc"].map(o=>(
+                  <button key={o} onClick={()=>setSortOrder(o)} style={{
+                    padding:"3px 10px",fontSize:10,cursor:"pointer",borderRadius:6,
+                    background:sortOrder===o?"#0f2a08":"#061204",
+                    border:`1px solid ${sortOrder===o?"#3a6a28":C.border}`,
+                    color:sortOrder===o?C.accent:C.muted,
+                  }}>{o==="asc"?"近い順":"遠い順"}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+              <button onClick={()=>setSelectedArea(null)} style={{
+                padding:"4px 10px",fontSize:10,cursor:"pointer",borderRadius:99,
+                background:!selectedArea?"#0f2a08":"#061204",
+                border:`1px solid ${!selectedArea?"#3a6a28":C.border}`,
+                color:!selectedArea?C.accent:C.muted,
+              }}>すべて</button>
+              {nearbyAreas.map(a=>(
+                <button key={a} onClick={()=>setSelectedArea(selectedArea===a?null:a)} style={{
+                  padding:"4px 10px",fontSize:10,cursor:"pointer",borderRadius:99,
+                  background:selectedArea===a?"#0f2a08":"#061204",
+                  border:`1px solid ${selectedArea===a?"#3a6a28":C.border}`,
+                  color:selectedArea===a?C.accent:C.muted,
+                }}>{a}</button>
+              ))}
+            </div>
+          </div>
+          {filteredSpots.map((s,i)=>{
+            const fs=calcFishScore(s,month,temp);
             const ws=windShelterInfo(windDeg,wind,s.windFacing);
             const spotScore=ws.ok?fs:Math.max(1,fs-1);
-            const reason=calcFishScoreReason(s,month,fishTemp);
+            const reason=calcFishScoreReason(s,month,temp);
             const spotReports=reports.filter(r=>r.spotId===s.id);
             const isOpen=openSpot===s.id;
             return(
@@ -721,7 +683,7 @@ export default function App(){
                       </div>
                     )}
 
-                    {/* 釣具屋・飮食店ロード */}
+                    {/* 釣具屋・飲食店ロード */}
                     <button onClick={()=>loadNearby(s)} style={{width:"100%",padding:10,background:"#061204",border:`1px solid #1a3a18`,borderRadius:10,color:"#446633",fontSize:12,cursor:"pointer",marginBottom:8}}>
                       {loadingNearby&&selectedSpotForNearby===s.id?"読み込み中...":"🏪 近くの釣具屋・食事どころを探す"}
                     </button>
@@ -782,7 +744,35 @@ export default function App(){
       {/* ── SEARCH ── */}
       {view==="search"&&(
         <div style={{padding:"14px 16px 0"}}>
-          <div style={{fontSize:12,color:C.muted,marginBottom:12}}>釣りたい魚を選ぶと近くで狙えるスポットを表示。<span style={{color:C.orange}}>●</span> = 今月が旬</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <div style={{fontSize:12,color:C.muted}}>釣りたい魚で絞り込み。<span style={{color:C.orange}}>●</span> = 今月が旬</div>
+            <div style={{display:"flex",gap:4}}>
+              {["asc","desc"].map(o=>(
+                <button key={o} onClick={()=>setSortOrder(o)} style={{
+                  padding:"3px 10px",fontSize:10,cursor:"pointer",borderRadius:6,
+                  background:sortOrder===o?"#0f2a08":"#061204",
+                  border:`1px solid ${sortOrder===o?"#3a6a28":C.border}`,
+                  color:sortOrder===o?C.accent:C.muted,
+                }}>{o==="asc"?"近い順":"遠い順"}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
+            <button onClick={()=>setSelectedArea(null)} style={{
+              padding:"4px 10px",fontSize:10,cursor:"pointer",borderRadius:99,
+              background:!selectedArea?"#0f2a08":"#061204",
+              border:`1px solid ${!selectedArea?"#3a6a28":C.border}`,
+              color:!selectedArea?C.accent:C.muted,
+            }}>すべて</button>
+            {nearbyAreas.map(a=>(
+              <button key={a} onClick={()=>setSelectedArea(selectedArea===a?null:a)} style={{
+                padding:"4px 10px",fontSize:10,cursor:"pointer",borderRadius:99,
+                background:selectedArea===a?"#0f2a08":"#061204",
+                border:`1px solid ${selectedArea===a?"#3a6a28":C.border}`,
+                color:selectedArea===a?C.accent:C.muted,
+              }}>{a}</button>
+            ))}
+          </div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>
             <button onClick={()=>setSelectedFish(null)} style={{padding:"6px 12px",background:!selectedFish?"#0f2a08":C.card,border:`1px solid ${!selectedFish?"#3a6a28":C.border}`,borderRadius:99,color:!selectedFish?C.accent:C.muted,fontSize:11,cursor:"pointer"}}>すべて</button>
             {FISH_MASTER.map(f=>{
@@ -797,8 +787,8 @@ export default function App(){
             })}
           </div>
           {filteredSpots.map(s=>{
-            const fs=calcFishScore(s,month,fishTemp);
-            const reason=calcFishScoreReason(s,month,fishTemp);
+            const fs=calcFishScore(s,month,temp);
+            const reason=calcFishScoreReason(s,month,temp);
             return(
               <div key={s.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:14,marginBottom:10}}>
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
